@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YZ Sohbet</title>
+<style>
+  :root { --bg:#f6f7f9; --panel:#fff; --text:#1c1f24; --muted:#6b7280; --line:#d9dce1; --accent:#2457d6; --user:#e8eefc; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#14161a; --panel:#1c1f25; --text:#e6e8eb; --muted:#8b93a1; --line:#2c313a; --accent:#6b93f5; --user:#232c45; }
+  }
+  * { box-sizing:border-box; }
+  html,body { height:100%; margin:0; }
+  body { background:var(--bg); color:var(--text); font:15px/1.5 system-ui,sans-serif; display:flex; }
+  select,input,textarea,button { font:inherit; color:inherit; background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:7px 9px; }
+  button { cursor:pointer; }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  button:disabled { opacity:.5; cursor:default; }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+
+  aside { width:250px; flex:none; background:var(--panel); border-right:1px solid var(--line); display:flex; flex-direction:column; }
+  aside .top { padding:10px; border-bottom:1px solid var(--line); }
+  aside .top button { width:100%; }
+  #list { flex:1; overflow-y:auto; padding:6px; }
+  .item { display:flex; align-items:center; gap:4px; border-radius:6px; padding:2px; }
+  .item:hover, .item.active { background:var(--bg); }
+  .item .t { flex:1; text-align:left; border:0; background:none; padding:7px 8px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+  .item .d { border:0; background:none; color:var(--muted); padding:4px 8px; }
+  .item .d:hover { color:#c0392b; }
+  .empty { color:var(--muted); padding:10px; font-size:13px; }
+
+  .col { flex:1; min-width:0; display:flex; flex-direction:column; max-width:820px; margin:0 auto; width:100%; }
+  header { display:flex; flex-wrap:wrap; gap:8px; padding:12px; border-bottom:1px solid var(--line); background:var(--panel); }
+  input[type=password] { flex:1; min-width:150px; }
+  #model { min-width:150px; max-width:260px; }
+  #menu { display:none; }
+  main { flex:1; overflow-y:auto; padding:14px 12px; display:flex; flex-direction:column; gap:10px; }
+  .msg { padding:9px 12px; border-radius:8px; white-space:pre-wrap; word-wrap:break-word; max-width:92%; background:var(--panel); border:1px solid var(--line); }
+  .msg.user { align-self:flex-end; background:var(--user); border-color:transparent; }
+  .msg.err { color:#c0392b; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; padding:8px 12px 0; background:var(--panel); border-top:1px solid var(--line); }
+  .chips:empty { display:none; }
+  .chip { border:1px solid var(--line); border-radius:14px; padding:2px 4px 2px 10px; font-size:13px; display:flex; gap:4px; align-items:center; background:var(--bg); }
+  .chip button { border:0; background:none; padding:0 6px; color:var(--muted); }
+  aside .top { display:flex; flex-direction:column; gap:6px; }
+  .flash { animation:flash 1.6s; }
+  @keyframes flash { from { box-shadow:0 0 0 3px var(--accent); } to { box-shadow:0 0 0 3px transparent; } }
+  .notebtn { border:0; background:none; padding:0; color:var(--accent); font-size:12px; }
+  .notebtn:disabled { color:var(--muted); cursor:default; }
+  #nb { width:min(720px,96vw); }
+  .nbbar { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+  .nbbar input { flex:1; min-width:140px; }
+  .tab.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .note { border:1px solid var(--line); border-radius:8px; padding:10px; margin-bottom:8px; }
+  .note .nh { display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; color:var(--muted); font-size:12px; margin-bottom:6px; }
+  .note .nh button { border:0; background:none; padding:0; color:var(--accent); font-size:12px; }
+  .note .nt { white-space:pre-wrap; word-wrap:break-word; }
+  .note .na { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .note .na button { font-size:12px; padding:3px 8px; }
+  .meta { display:flex; flex-wrap:wrap; gap:10px; align-items:center; align-self:flex-start; color:var(--muted); font-size:12px; margin:-6px 0 0 4px; }
+  .total { padding:6px 12px; font-size:13px; color:var(--muted); border-bottom:1px solid var(--line); background:var(--panel); }
+  footer { display:flex; gap:8px; padding:12px; border-top:1px solid var(--line); background:var(--panel); }
+  textarea { flex:1; resize:none; height:46px; }
+
+  #cmpOpen { white-space:nowrap; }
+  dialog { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:10px; padding:14px; width:min(960px,96vw); max-height:92vh; overflow:auto; }
+  dialog::backdrop { background:rgba(0,0,0,.4); }
+  .cmp-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .hint { color:var(--muted); font-size:13px; margin:0 0 10px; }
+  #cmpPrompt { width:100%; height:70px; resize:vertical; margin-bottom:10px; }
+  .cmp-cols { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
+  .cbox { border:1px solid var(--line); border-radius:8px; padding:8px; min-width:0; }
+  .cbox .sel { display:flex; gap:6px; margin-bottom:8px; }
+  .cbox .sel select { flex:1; min-width:0; }
+  .cbox .out { white-space:pre-wrap; word-wrap:break-word; min-height:60px; }
+  .cbox .out.err { color:#c0392b; }
+  .cbox .use { margin-top:8px; }
+  .cbox .stats { margin-top:8px; padding-top:8px; border-top:1px solid var(--line); color:var(--muted); font-size:13px; }
+  @media (max-width:700px) { .cmp-cols { grid-template-columns:1fr; } }
+  @media (max-width:700px) {
+    aside { position:fixed; inset:0 auto 0 0; z-index:10; transform:translateX(-100%); transition:transform .15s; }
+    aside.open { transform:none; box-shadow:0 0 0 100vmax rgba(0,0,0,.35); }
+    #menu { display:inline-block; }
+  }
+</style>
+</head>
+<body>
+<aside id="side">
+  <div class="top"><button class="primary" id="new">+ Yeni sohbet</button><button id="nbAll">📓 Genel not defteri</button></div>
+  <div id="list"></div>
+</aside>
+
+<div class="col">
+  <header>
+    <button id="menu" aria-label="Sohbetler">☰</button>
+    <select id="provider" aria-label="Sağlayıcı"></select>
+    <select id="model" aria-label="Model"></select>
+    <button id="refresh" title="Modelleri yenile" aria-label="Modelleri yenile">↻</button>
+    <button id="cmpOpen" title="İki modeli karşılaştır">⚖ Karşılaştır</button>
+    <button id="nbOpen" title="Bu sohbetin not defteri">📓 <span id="nbCount">0</span></button>
+    <input id="key" type="password" placeholder="API anahtarı" autocomplete="off" aria-label="API anahtarı">
+  </header>
+  <div class="total" id="total" title="Tahmini tutar: Anthropic liste fiyatı. Önbellek, batch, hızlı mod ve ABD-only çarpanı dahil değil."></div>
+  <main id="chat"></main>
+  <div class="chips" id="chips"></div>
+  <footer>
+    <button id="attach" title="Dosya ekle (resim, PDF, metin/kod)" aria-label="Dosya ekle">📎</button>
+    <input type="file" id="file" multiple hidden>
+    <textarea id="input" placeholder="Mesaj yaz (Enter: gönder, Shift+Enter: alt satır)"></textarea>
+    <button class="primary" id="send">Gönder</button>
+  </footer>
+</div>
+
+<dialog id="nb">
+  <div class="cmp-head"><b id="nbTitle">Not defteri</b><button id="nbClose">Kapat</button></div>
+  <div class="nbbar">
+    <button class="tab" id="nbTabChat">Bu sohbet</button>
+    <button class="tab" id="nbTabAll">Genel</button>
+    <input id="nbSearch" placeholder="Notlarda ara" aria-label="Notlarda ara">
+    <button id="nbExport" title="Görünen notları .md dosyası olarak indir">⬇ .md</button>
+  </div>
+  <div id="nbList"></div>
+</dialog>
+
+<dialog id="cmp">
+  <div class="cmp-head"><b>Model karşılaştırma</b><button id="cmpClose">Kapat</button></div>
+  <p class="hint" id="cmpCtx"></p>
+  <p class="hint">Aynı model olması gereken iki yolda giriş token sayıları birbirine çok yakın olmalı; belirgin fark farklı model göstergesidir. Anahtarlar ana ekrandan girilmiş olmalı.</p>
+  <textarea id="cmpPrompt" placeholder="Karşılaştırma mesajı"></textarea>
+  <div class="cmp-cols">
+    <div class="cbox" id="cmpA"><div class="sel"><select class="cp" aria-label="Sağlayıcı A"></select><select class="cm" aria-label="Model A"></select></div><div class="out"></div></div>
+    <div class="cbox" id="cmpB"><div class="sel"><select class="cp" aria-label="Sağlayıcı B"></select><select class="cm" aria-label="Model B"></select></div><div class="out"></div></div>
+  </div>
+  <button class="primary" id="cmpRun">Gönder</button>
+</dialog>
+
+<script>
+const PROVIDERS = {
+  anthropic:  { name:"Anthropic (Claude)", models:["claude-fable-5-1","claude-opus-5-5","claude-sonnet-5-5","claude-haiku-5-5"], def:"claude-sonnet-5-5" },
+  openai:     { name:"OpenAI",             models:["gpt-4o","gpt-4o-mini"], def:"gpt-4o-mini", url:"https://api.openai.com/v1" },
+  google:     { name:"Google (Gemini)",    models:["gemini-2.5-flash","gemini-2.5-pro"], def:"gemini-2.5-flash", url:"https://generativelanguage.googleapis.com/v1beta/openai" },
+  mistral:    { name:"Mistral",            models:["mistral-large-latest","mistral-small-latest"], def:"mistral-small-latest", url:"https://api.mistral.ai/v1" },
+  groq:       { name:"Groq",               models:["llama-3.3-70b-versatile"], def:"llama-3.3-70b-versatile", url:"https://api.groq.com/openai/v1" },
+  xai:        { name:"xAI (Grok)",         models:["grok-4"], def:"grok-4", url:"https://api.x.ai/v1" },
+  deepseek:   { name:"DeepSeek",           models:["deepseek-chat","deepseek-reasoner"], def:"deepseek-chat", url:"https://api.deepseek.com/v1" },
+  together:   { name:"Together AI",        models:["meta-llama/Llama-3.3-70B-Instruct-Turbo"], def:"meta-llama/Llama-3.3-70B-Instruct-Turbo", url:"https://api.together.xyz/v1" },
+  openrouter: { name:"OpenRouter",         models:["openai/gpt-4o-mini"], def:"openai/gpt-4o-mini", url:"https://openrouter.ai/api/v1" }
+};
+const $ = id => document.getElementById(id);
+const chat=$("chat"), input=$("input"), send=$("send"), providerEl=$("provider"), modelEl=$("model"), keyEl=$("key"), listEl=$("list"), side=$("side");
+
+function load(k){ try { return localStorage.getItem(k) || ""; } catch { return ""; } }
+function save(k,v){ try { localStorage.setItem(k,v); } catch {} }
+
+for (const [id,p] of Object.entries(PROVIDERS)) { const o = document.createElement("option"); o.value = id; o.textContent = p.name; providerEl.appendChild(o); }
+try {
+  for (const k of Object.keys(localStorage)) {
+    const m = k.match(/^(?:key|model|models)_(.+)$/);
+    if (!m) continue;
+    if (!PROVIDERS[m[1]]) { localStorage.removeItem(k); continue; }
+    if (m[1] === "anthropic" && k.startsWith("model") && (localStorage.getItem(k) || "").includes(".")) localStorage.removeItem(k);
+  }
+} catch {}
+
+if (load("v") !== "2") { try { localStorage.removeItem("models_anthropic"); } catch {} save("v","2"); }
+
+let chats = [];
+try { chats = JSON.parse(load("chats") || "[]"); } catch { chats = []; }
+chats = chats.filter(c => PROVIDERS[c.provider]);
+chats.forEach(c => { if (c.provider === "anthropic" && String(c.model).includes(".")) c.model = PROVIDERS.anthropic.def; });
+save("chats", JSON.stringify(chats));
+let notes = [];
+try { notes = JSON.parse(load("notes") || "[]"); } catch { notes = []; }
+function saveNotes(){ save("notes", JSON.stringify(notes)); }
+let cur = null;
+
+function persist(){
+  // Resim ve PDF içerikleri tarayıcı depolamasına sığmaz; kaydederken sadece dosya adı kalır.
+  const copy = chats.map(c => ({ ...c, messages: c.messages.map(m => Array.isArray(m.content)
+    ? { ...m, content: m.content.map(p => (p.kind === "image" || p.kind === "pdf") ? { kind:"lost", name:p.name } : p) }
+    : m) }));
+  save("chats", JSON.stringify(copy));
+}
+
+function setModels(ids, selected){
+  if (selected && !ids.includes(selected)) ids = [selected, ...ids];
+  modelEl.innerHTML = "";
+  for (const id of ids) { const o = document.createElement("option"); o.value = o.textContent = id; modelEl.appendChild(o); }
+  if (selected) modelEl.value = selected;
+}
+function setModel(id){
+  if (![...modelEl.options].some(o=>o.value===id)) {
+    const o = document.createElement("option"); o.value = o.textContent = id; modelEl.prepend(o);
+  }
+  modelEl.value = id;
+}
+function applyProvider(){
+  const p = PROVIDERS[providerEl.value];
+  let cached = [];
+  try { cached = JSON.parse(load("models_"+providerEl.value) || "[]"); } catch {}
+  setModels(cached.length ? cached : p.models, load("model_"+providerEl.value) || p.def);
+  keyEl.value = load("key_"+providerEl.value);
+  save("provider", providerEl.value);
+}
+async function fetchModels(){
+  const key = keyEl.value.trim(), prov = providerEl.value;
+  if (!key) return;
+  if (prov === "anthropic" && !key.startsWith("sk-ant-")) { add("assistant", "Anthropic anahtarı sk-ant- ile başlar. Anahtar kutusunu temizleyip console.anthropic.com'dan aldığın anahtarı yapıştır.", "err"); return; }
+  const btn = $("refresh"); btn.disabled = true;
+  try {
+    let r;
+    if (prov === "anthropic") {
+      r = await fetch("https://api.anthropic.com/v1/models?limit=100", { headers:{ "x-api-key":key, "anthropic-version":"2023-06-01", "anthropic-dangerous-direct-browser-access":"true" } });
+    } else {
+      r = await fetch(PROVIDERS[prov].url + "/models", { headers:{ "authorization":"Bearer "+key } });
+    }
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error?.message || r.statusText);
+    const raw = (j.data || []).map(m=>String(m.id).replace(/^models\//,""));
+    const ids = prov === "anthropic" ? raw : raw.sort(); // Anthropic listesi API'den yeniden eskiye gelir
+    if (!ids.length) return;
+    save("models_"+prov, JSON.stringify(ids));
+    if (providerEl.value === prov) setModels(ids, modelEl.value || load("model_"+prov) || PROVIDERS[prov].def);
+  } catch (e) {
+    add("assistant", "Model listesi alınamadı: " + e.message, "err");
+  }
+  btn.disabled = false;
+}
+providerEl.value = PROVIDERS[load("provider")] ? load("provider") : "anthropic";
+applyProvider();
+providerEl.onchange = () => { applyProvider(); fetchModels(); };
+modelEl.onchange = () => save("model_"+providerEl.value, modelEl.value);
+keyEl.onchange = () => { save("key_"+providerEl.value, keyEl.value); fetchModels(); };
+$("refresh").onclick = fetchModels;
+
+function add(role, text, cls="", i){
+  const d = document.createElement("div");
+  if (i != null) d.dataset.i = i;
+  d.className = "msg " + (role==="user" ? "user" : "") + " " + cls;
+  d.textContent = text;
+  chat.appendChild(d);
+  chat.scrollTop = chat.scrollHeight;
+  return d;
+}
+
+function renderList(){
+  updateTotal();
+  listEl.innerHTML = "";
+  if (!chats.length) { listEl.innerHTML = '<div class="empty">Henüz sohbet yok.</div>'; return; }
+  for (const c of chats) {
+    const row = document.createElement("div");
+    row.className = "item" + (cur && c.id===cur.id ? " active" : "");
+    const t = document.createElement("button");
+    t.className = "t"; t.textContent = c.title; t.title = c.title;
+    t.onclick = () => openChat(c.id);
+    const d = document.createElement("button");
+    d.className = "d"; d.textContent = "✕"; d.setAttribute("aria-label","Sil");
+    d.onclick = () => removeChat(c.id);
+    row.append(t, d);
+    listEl.appendChild(row);
+  }
+}
+
+function newChat(){
+  cur = { id: Date.now().toString(36), title:"Yeni sohbet", messages:[], provider:providerEl.value, model:modelEl.value, updated:Date.now() };
+  chat.innerHTML = "";
+  renderList();
+  side.classList.remove("open");
+  input.focus();
+}
+
+function openChat(id){
+  const c = chats.find(x=>x.id===id);
+  if (!c) return;
+  cur = c;
+  if (PROVIDERS[c.provider]) providerEl.value = c.provider;
+  applyProvider();
+  setModel(c.model);
+  chat.innerHTML = "";
+  c.messages.forEach((m, i) => {
+    add(m.role, contentText(m.content), "", i);
+    if (m.role === "assistant") chat.appendChild(metaEl(c.stats?.[i], i));
+  });
+  renderList();
+  side.classList.remove("open");
+  input.focus();
+}
+
+function removeChat(id){
+  if (!confirm("Bu sohbet silinsin mi?")) return;
+  chats = chats.filter(c=>c.id!==id);
+  persist();
+  if (cur && cur.id===id) { chats.length ? openChat(chats[0].id) : newChat(); }
+  renderList();
+}
+
+function contentText(c){
+  if (typeof c === "string") return c;
+  const names = c.filter(p => p.kind !== "text").map(p => "📎 " + p.name + (p.kind === "lost" ? " (kaydedilmedi)" : ""));
+  const t = c.filter(p => p.kind === "text").map(p => p.text).join("\n");
+  return names.join("  ") + (names.length && t ? "\n" : "") + t;
+}
+function toApiContent(prov, content){
+  if (typeof content === "string") return content;
+  const out = [];
+  for (const p of content) {
+    if (p.kind === "text") out.push({ type:"text", text:p.text });
+    else if (p.kind === "textfile") out.push({ type:"text", text:`[Dosya: ${p.name}]\n${p.text}` });
+    else if (p.kind === "lost") out.push({ type:"text", text:`[Ek: ${p.name} — bu dosya artık gönderilemiyor]` });
+    else if (p.kind === "image") out.push(prov === "anthropic"
+      ? { type:"image", source:{ type:"base64", media_type:p.mime, data:p.data } }
+      : { type:"image_url", image_url:{ url:`data:${p.mime};base64,${p.data}` } });
+    else if (p.kind === "pdf") {
+      if (prov === "anthropic") out.push({ type:"document", source:{ type:"base64", media_type:"application/pdf", data:p.data } });
+      else if (prov === "openai") out.push({ type:"file", file:{ filename:p.name, file_data:`data:application/pdf;base64,${p.data}` } });
+      else throw new Error("Bu sağlayıcı PDF'i doğrudan desteklemiyor: " + p.name);
+    }
+  }
+  return out;
+}
+
+// Anthropic liste fiyatları, $ / milyon token [giriş, çıkış]. Kaynak: platform.claude.com/docs/en/about-claude/pricing (Ekim 2026).
+const PRICES = {
+  "claude-fable-5-1":[10,50], "claude-fable-5":[10,50], "claude-mythos-5-1":[10,50], "claude-mythos-5":[10,50],
+  "claude-opus-5-5":[4,20], "claude-opus-5":[5,25], "claude-opus-4-8":[5,25], "claude-opus-4-7":[5,25], "claude-opus-4-6":[5,25], "claude-opus-4-5":[5,25],
+  "claude-sonnet-5-5":[2,10], "claude-sonnet-5":[2,10], "claude-sonnet-4-6":[3,15], "claude-sonnet-4-5":[3,15],
+  "claude-haiku-4-5":[1,5]
+};
+function priceOf(model, tin){
+  if (!model) return null;
+  const id = String(model).replace(/-\d{8}$/, "");
+  if (id === "claude-haiku-5-5") return tin > 100000 ? [0.5, 2.5] : [0.1, 0.5]; // 100K token üstü istemde farklı fiyat
+  return PRICES[id] || null;
+}
+function costOf(prov, model, tin, tout){
+  if (prov !== "anthropic" || tin == null || tout == null) return null;
+  const p = priceOf(model, tin);
+  return p ? (tin*p[0] + tout*p[1]) / 1e6 : null;
+}
+function fmtUsd(x){ return "$" + (x < 0.01 ? x.toFixed(4) : x.toFixed(3)); }
+function statText(s){ return `giriş ${s.tin ?? "?"} + çıkış ${s.tout ?? "?"} token · ` + (s.cost == null ? "fiyat bilinmiyor" : "≈ " + fmtUsd(s.cost)); }
+function metaEl(s, idx){
+  const d = document.createElement("div"); d.className = "meta";
+  if (s) { const t = document.createElement("span"); t.textContent = statText(s); d.appendChild(t); }
+  if (idx != null) {
+    const b = document.createElement("button"); b.className = "notebtn"; b.textContent = "📝 Not defterine ekle";
+    if (notes.some(n => n.chatId === cur.id && n.idx === idx)) { b.textContent = "✓ Not alındı"; b.disabled = true; }
+    else b.onclick = () => addNote(idx, b);
+    d.appendChild(b);
+  }
+  return d;
+}
+function sumStats(c){
+  const t = { tin:0, tout:0, cost:0, unknown:false };
+  for (const s of Object.values(c?.stats || {})) { t.tin += s.tin||0; t.tout += s.tout||0; if (s.cost == null) t.unknown = true; else t.cost += s.cost; }
+  return t;
+}
+function addNotes(t, list){
+  for (const n of list) { t.tin += n.tin||0; t.tout += n.tout||0; if (n.cost == null) t.unknown = true; else t.cost += n.cost; }
+  return t;
+}
+function updateTotal(){
+  const mine = notes.filter(n => n.chatId === cur?.id);
+  const a = addNotes(sumStats(cur), mine), all = { tin:0, tout:0, cost:0, unknown:false };
+  for (const c of chats) { const b = sumStats(c); all.tin += b.tin; all.tout += b.tout; all.cost += b.cost; all.unknown ||= b.unknown; }
+  addNotes(all, notes);
+  const f = t => `${t.tin} giriş + ${t.tout} çıkış token · ≈ ${fmtUsd(t.cost)}${t.unknown ? "+" : ""}`;
+  $("total").textContent = `Bu sohbet: ${f(a)}   |   Tüm sohbetler: ${f(all)}`;
+  $("nbCount").textContent = mine.length;
+}
+
+async function callApi(prov, key, model, messages){
+  messages = messages.map(m => ({ role:m.role, content:toApiContent(prov, m.content) }));
+  const t0 = performance.now();
+  let r, j, text, tin, tout;
+  if (prov === "anthropic" && !key.startsWith("sk-ant-")) throw new Error("Anthropic anahtarı sk-ant- ile başlar.");
+  if (prov === "anthropic") {
+    r = await fetch("https://api.anthropic.com/v1/messages", {
+      method:"POST",
+      headers:{ "content-type":"application/json", "x-api-key":key, "anthropic-version":"2023-06-01", "anthropic-dangerous-direct-browser-access":"true" },
+      body: JSON.stringify({ model, max_tokens:2048, messages })
+    });
+    j = await r.json();
+    if (!r.ok) throw new Error(j.error?.message || r.statusText);
+    text = j.content.map(c=>c.text||"").join("");
+    tin = j.usage?.input_tokens; tout = j.usage?.output_tokens;
+  } else {
+    r = await fetch(PROVIDERS[prov].url + "/chat/completions", {
+      method:"POST",
+      headers:{ "content-type":"application/json", "authorization":"Bearer "+key },
+      body: JSON.stringify({ model, messages })
+    });
+    j = await r.json();
+    if (!r.ok) throw new Error(j.error?.message || r.statusText);
+    text = j.choices[0].message.content;
+    tin = j.usage?.prompt_tokens; tout = j.usage?.completion_tokens;
+  }
+  return { text, tin, tout, ms: performance.now()-t0, model: j.model, cost: costOf(prov, j.model, tin, tout) ?? costOf(prov, model, tin, tout) };
+}
+
+async function call(){
+  const key = keyEl.value.trim();
+  if (!key) throw new Error("API anahtarı gerekli.");
+  return await callApi(providerEl.value, key, modelEl.value.trim(), cur.messages);
+}
+
+async function submit(){
+  const text = input.value.trim();
+  if ((!text && !pending.length) || send.disabled) return;
+  input.value = "";
+  let content = text;
+  if (pending.length) content = [...pending.map(a => a.part), ...(text ? [{ kind:"text", text }] : [])];
+  const title = text || pending[0]?.part.name || "Dosya";
+  pending = []; renderChips();
+  cur.provider = providerEl.value; cur.model = modelEl.value;
+  if (!cur.messages.length) cur.title = title.slice(0,50);
+  add("user", contentText(content), "", cur.messages.length);
+  cur.messages.push({ role:"user", content });
+  if (!chats.includes(cur)) chats.unshift(cur);
+  cur.updated = Date.now();
+  persist(); renderList();
+  send.disabled = true;
+  const wait = add("assistant", "…", "", cur.messages.length);
+  try {
+    const r = await call();
+    wait.textContent = r.text;
+    cur.messages.push({ role:"assistant", content:r.text });
+    const st = { tin:r.tin, tout:r.tout, cost:r.cost, model:r.model };
+    (cur.stats ||= {})[cur.messages.length - 1] = st;
+    wait.after(metaEl(st, cur.messages.length - 1));
+  } catch (e) {
+    wait.textContent = "Hata: " + e.message;
+    wait.classList.add("err");
+    delete wait.dataset.i;
+    const back = cur.messages.pop();
+    if (back) { // başarısız mesajı geri yükle: metin kutusuna ve ek listesine
+      if (Array.isArray(back.content)) {
+        pending = back.content.filter(p => p.kind !== "text").map(p => ({ part:p, size:0 }));
+        input.value = back.content.filter(p => p.kind === "text").map(p => p.text).join("\n");
+      } else input.value = back.content;
+      renderChips();
+    }
+    if (!cur.messages.length) { chats = chats.filter(c=>c!==cur); }
+  }
+  persist(); renderList();
+  send.disabled = false;
+  input.focus();
+}
+
+let pending = [];
+const MAX_FILE = 10 * 1024 * 1024, MAX_TEXT = 300 * 1024;
+function renderChips(){
+  const box = $("chips");
+  box.innerHTML = "";
+  pending.forEach((a, i) => {
+    const d = document.createElement("div"); d.className = "chip";
+    const t = document.createElement("span"); t.textContent = a.part.name;
+    const x = document.createElement("button"); x.textContent = "✕"; x.setAttribute("aria-label", "Eki kaldır");
+    x.onclick = () => { pending.splice(i, 1); renderChips(); };
+    d.append(t, x); box.appendChild(d);
+  });
+}
+function readDataUrl(f){
+  return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.onerror = () => rej(new Error("okunamadı")); r.readAsDataURL(f); });
+}
+async function addFiles(files){
+  for (const f of files) {
+    const err = m => add("assistant", `${f.name}: ${m}`, "err");
+    if (f.size > MAX_FILE) { err("10 MB sınırını aşıyor."); continue; }
+    try {
+      if (/^image\/(png|jpeg|gif|webp)$/.test(f.type)) pending.push({ size:f.size, part:{ kind:"image", name:f.name, mime:f.type, data:await readDataUrl(f) } });
+      else if (f.type === "application/pdf" || /\.pdf$/i.test(f.name)) pending.push({ size:f.size, part:{ kind:"pdf", name:f.name, data:await readDataUrl(f) } });
+      else {
+        const t = await f.text();
+        if (t.includes("\u0000")) { err("desteklenmeyen dosya türü (resim, PDF veya metin/kod olmalı)."); continue; }
+        if (t.length > MAX_TEXT) { err("metin dosyası 300 KB sınırını aşıyor."); continue; }
+        pending.push({ size:f.size, part:{ kind:"textfile", name:f.name, text:t } });
+      }
+    } catch (e) { err(e.message); }
+  }
+  renderChips();
+}
+$("attach").onclick = () => $("file").click();
+$("file").onchange = e => { addFiles([...e.target.files]); e.target.value = ""; };
+input.addEventListener("paste", e => { if (e.clipboardData?.files.length) { e.preventDefault(); addFiles([...e.clipboardData.files]); } });
+document.addEventListener("dragover", e => e.preventDefault());
+document.addEventListener("drop", e => { if (e.dataTransfer?.files.length) { e.preventDefault(); addFiles([...e.dataTransfer.files]); } });
+
+send.onclick = submit;
+input.onkeydown = e => { if (e.key==="Enter" && !e.shiftKey) { e.preventDefault(); submit(); } };
+$("new").onclick = newChat;
+$("menu").onclick = () => side.classList.toggle("open");
+side.addEventListener("click", e => { if (e.target === side) side.classList.remove("open"); });
+
+async function addNote(idx, btn){
+  const msg = cur.messages[idx];
+  if (!msg) return;
+  const key = keyEl.value.trim(), prov = providerEl.value, model = modelEl.value.trim();
+  if (!key) { add("assistant", "Not özeti için API anahtarı gerekli.", "err"); return; }
+  const reply = contentText(msg.content).slice(0, 20000);
+  let question = "";
+  for (let j = idx - 1; j >= 0; j--) if (cur.messages[j].role === "user") { question = contentText(cur.messages[j].content).slice(0, 1500); break; }
+  const prompt = "Aşağıdaki yanıtın önemli noktalarını çıkar ve kısa, net maddeler halinde özetle (en fazla 6 madde, her madde tek cümle). Yanıtın diliyle yaz. Karar, sayı, ad ve yapılacak işleri koru. Sadece özeti yaz, giriş veya kapanış cümlesi ekleme.\n\n"
+    + (question ? `Kullanıcının sorusu:\n${question}\n\n` : "") + `Yanıt:\n${reply}`;
+  btn.disabled = true; btn.textContent = "Özetleniyor…";
+  try {
+    const r = await callApi(prov, key, model, [{ role:"user", content:prompt }]);
+    notes.unshift({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      chatId: cur.id, chatTitle: cur.title, idx, ts: Date.now(),
+      text: r.text.trim(), model: r.model || model, tin: r.tin, tout: r.tout, cost: r.cost
+    });
+    saveNotes(); updateTotal();
+    btn.textContent = "✓ Not alındı";
+  } catch (e) {
+    btn.disabled = false; btn.textContent = "📝 Tekrar dene";
+    add("assistant", "Not özeti alınamadı: " + e.message, "err");
+  }
+}
+
+let nbTab = "chat";
+function nbItems(){
+  const q = $("nbSearch").value.trim().toLowerCase();
+  let list = notes.filter(n => nbTab === "all" || n.chatId === cur.id);
+  if (q) list = list.filter(n => n.text.toLowerCase().includes(q) || noteChatTitle(n).toLowerCase().includes(q));
+  return list;
+}
+function noteChatTitle(n){ return chats.find(c => c.id === n.chatId)?.title || n.chatTitle || "Sohbet"; }
+function openNb(tab){ nbTab = tab; $("nbSearch").value = ""; renderNb(); $("nb").showModal(); }
+function gotoNote(n){
+  if (!chats.some(c => c.id === n.chatId)) return;
+  if (cur.id !== n.chatId) openChat(n.chatId);
+  $("nb").close();
+  setTimeout(() => {
+    const el = chat.querySelector(`.msg[data-i="${n.idx}"]`);
+    if (!el) return;
+    el.scrollIntoView({ block:"center" });
+    el.classList.add("flash");
+    el.addEventListener("animationend", () => el.classList.remove("flash"), { once:true });
+  }, 60);
+}
+function renderNb(){
+  $("nbTabChat").classList.toggle("active", nbTab === "chat");
+  $("nbTabAll").classList.toggle("active", nbTab === "all");
+  $("nbTitle").textContent = nbTab === "chat" ? "Not defteri — " + cur.title : "Genel not defteri";
+  const box = $("nbList"); box.innerHTML = "";
+  const list = nbItems();
+  if (!list.length) {
+    const e = document.createElement("div"); e.className = "empty";
+    e.textContent = $("nbSearch").value ? "Eşleşen not yok." : "Henüz not yok. Bir yanıtın altındaki \"Not defterine ekle\" bağlantısını kullan.";
+    box.appendChild(e); return;
+  }
+  for (const n of list) {
+    const alive = chats.some(c => c.id === n.chatId);
+    const card = document.createElement("div"); card.className = "note";
+    const h = document.createElement("div"); h.className = "nh";
+    const left = document.createElement("span");
+    if (nbTab === "all") {
+      if (alive) { const b = document.createElement("button"); b.textContent = noteChatTitle(n); b.onclick = () => gotoNote(n); left.appendChild(b); }
+      else left.textContent = noteChatTitle(n) + " (sohbet silindi)";
+    } else left.textContent = "Yanıt #" + (n.idx + 1);
+    const right = document.createElement("span");
+    right.textContent = new Date(n.ts).toLocaleString("tr-TR") + (n.cost != null ? " · özet ≈ " + fmtUsd(n.cost) : "");
+    h.append(left, right);
+    const txt = document.createElement("div"); txt.className = "nt"; txt.textContent = n.text;
+    const act = document.createElement("div"); act.className = "na";
+    const mk = (label, fn) => { const b = document.createElement("button"); b.textContent = label; b.onclick = fn; act.appendChild(b); return b; };
+    if (alive) mk("Yanıta git", () => gotoNote(n));
+    const ed = mk("Düzenle", () => {
+      const ta = document.createElement("textarea"); ta.value = n.text; ta.style.cssText = "width:100%;height:140px";
+      txt.replaceWith(ta); ed.textContent = "Kaydet";
+      ed.onclick = () => { n.text = ta.value.trim() || n.text; saveNotes(); renderNb(); };
+    });
+    mk("Kopyala", async () => { try { await navigator.clipboard.writeText(n.text); } catch {} });
+    mk("Sil", () => { if (!confirm("Bu not silinsin mi?")) return; notes = notes.filter(x => x !== n); saveNotes(); updateTotal(); renderNb(); });
+    card.append(h, txt, act); box.appendChild(card);
+  }
+}
+function exportNb(){
+  const list = nbItems(); if (!list.length) return;
+  const md = `# ${nbTab === "chat" ? "Not defteri — " + cur.title : "Genel not defteri"}\n\n` +
+    list.map(n => `## ${noteChatTitle(n)} — ${new Date(n.ts).toLocaleString("tr-TR")}\n\n${n.text}\n`).join("\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([md], { type:"text/markdown" }));
+  a.download = "notlar.md"; a.click(); URL.revokeObjectURL(a.href);
+}
+$("nbOpen").onclick = () => openNb("chat");
+$("nbAll").onclick = () => { side.classList.remove("open"); openNb("all"); };
+$("nbTabChat").onclick = () => { nbTab = "chat"; renderNb(); };
+$("nbTabAll").onclick = () => { nbTab = "all"; renderNb(); };
+$("nbSearch").oninput = renderNb;
+$("nbExport").onclick = exportNb;
+$("nbClose").onclick = () => $("nb").close();
+
+const cmpEl = $("cmp"), boxes = [$("cmpA"), $("cmpB")];
+function fillCmp(box){
+  const prov = box.querySelector(".cp").value, sel = box.querySelector(".cm");
+  let list = [];
+  try { list = JSON.parse(load("models_"+prov) || "[]"); } catch {}
+  if (!list.length) list = PROVIDERS[prov].models;
+  const saved = load("model_"+prov) || PROVIDERS[prov].def;
+  if (!list.includes(saved)) list = [saved, ...list];
+  sel.innerHTML = "";
+  for (const id of list) { const o = document.createElement("option"); o.value = o.textContent = id; sel.appendChild(o); }
+  sel.value = saved;
+}
+boxes.forEach((box, i) => {
+  const cp = box.querySelector(".cp");
+  cp.innerHTML = providerEl.innerHTML;
+  cp.value = i === 0 ? "anthropic" : "openai";
+  cp.onchange = () => fillCmp(box);
+  fillCmp(box);
+});
+function openCmp(){
+  const a = boxes[0];
+  a.querySelector(".cp").value = providerEl.value;
+  fillCmp(a);
+  const sel = a.querySelector(".cm");
+  if (![...sel.options].some(o => o.value === modelEl.value)) { const o = document.createElement("option"); o.value = o.textContent = modelEl.value; sel.prepend(o); }
+  sel.value = modelEl.value;
+  $("cmpPrompt").value = input.value;
+  const n = cur.messages.length;
+  $("cmpCtx").textContent = (n ? `Bu sohbetteki ${n} mesaj iki modele de önceki konuşma olarak gönderilir; yazdığın mesaj konuşmanın devamıdır.` : "Bu sohbet henüz boş, yazdığın mesaj ilk mesaj olarak gönderilir.")
+    + (pending.length ? ` Eklediğin ${pending.length} dosya da gönderilir.` : "")
+    + " Beğendiğin yanıtın altındaki düğmeyle sohbete bu modelle devam edebilirsin.";
+  boxes.forEach(b => { b.querySelector(".out").textContent = ""; b.querySelector(".out").className = "out"; b.querySelector(".stats")?.remove(); b.querySelector(".use")?.remove(); b._res = null; });
+  cmpEl.showModal();
+}
+$("cmpOpen").onclick = openCmp;
+$("cmpClose").onclick = () => cmpEl.close();
+
+function adopt(box){
+  const r = box._res;
+  if (!r) return;
+  providerEl.value = r.prov; applyProvider(); setModel(r.model); save("model_" + r.prov, r.model);
+  cur.provider = r.prov; cur.model = r.model;
+  if (!cur.messages.length) cur.title = (typeof r.content === "string" ? r.content : contentText(r.content)).slice(0, 50);
+  cur.messages.push({ role:"user", content:r.content }, { role:"assistant", content:r.reply });
+  (cur.stats ||= {})[cur.messages.length - 1] = r.st;
+  add("user", contentText(r.content), "", cur.messages.length - 2);
+  add("assistant", r.reply, "", cur.messages.length - 1).after(metaEl(r.st, cur.messages.length - 1));
+  if (!chats.includes(cur)) chats.unshift(cur);
+  cur.updated = Date.now();
+  pending = []; renderChips(); input.value = "";
+  persist(); renderList();
+  cmpEl.close();
+  input.focus();
+}
+
+$("cmpRun").onclick = async () => {
+  const text = $("cmpPrompt").value.trim();
+  const atts = pending.map(a => a.part);
+  if (!text && !atts.length) return;
+  const content = atts.length ? [...atts, ...(text ? [{ kind:"text", text }] : [])] : text;
+  const history = cur.messages.slice();
+  const btn = $("cmpRun"); btn.disabled = true;
+  await Promise.all(boxes.map(async box => {
+    const out = box.querySelector(".out");
+    box.querySelector(".stats")?.remove(); box.querySelector(".use")?.remove(); box._res = null;
+    out.className = "out"; out.textContent = "…";
+    const prov = box.querySelector(".cp").value, model = box.querySelector(".cm").value, key = load("key_"+prov);
+    if (!key) { out.textContent = "Hata: bu sağlayıcı için anahtar yok. Ana ekranda sağlayıcıyı seçip anahtarı gir."; out.classList.add("err"); return; }
+    try {
+      const r = await callApi(prov, key, model, [...history, { role:"user", content }]);
+      out.textContent = r.text;
+      const st = document.createElement("div");
+      st.className = "stats";
+      st.textContent = `${statText(r)} · ${(r.ms/1000).toFixed(1)} sn · yanıttaki model: ${r.model ?? "?"}`;
+      box.appendChild(st);
+      const use = document.createElement("button");
+      use.className = "use"; use.textContent = "Bu yanıtla devam et";
+      use.onclick = () => adopt(box);
+      box.appendChild(use);
+      box._res = { prov, model, content, reply:r.text, st:{ tin:r.tin, tout:r.tout, cost:r.cost, model:r.model } };
+    } catch (e) {
+      out.textContent = "Hata: " + e.message; out.classList.add("err");
+    }
+  }));
+  btn.disabled = false;
+};
+
+chats.length ? openChat(chats[0].id) : newChat();
+renderList();
+fetchModels();
+</script>
+</body>
+</html>
